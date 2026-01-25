@@ -127,7 +127,7 @@ export default function App() {
   const [eventSongs, setEventSongs] = useLocalStorage(STORAGE_KEYS.SONGS, DEFAULTS.SONGS);
   const [activeTab, setActiveTab] = useLocalStorage<AppTab>('wf_active_tab_persistent', 'dashboard');
 
-  const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 1024);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 1280);
   const [modalType, setModalType] = useState<string | null>(null);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [confirmState, setConfirmState] = useState({ isOpen: false, title: '', message: '', onConfirm: () => {} });
@@ -146,20 +146,30 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
+  // Auto-minimize sidebar on smaller screens
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 1280) {
+        setIsSidebarOpen(false);
+      } else {
+        setIsSidebarOpen(true);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   // Keyboard Shortcuts Handler
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Cmd+K for search
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         setIsSearchOpen(true);
       }
-      // Esc to close modals/search
       if (e.key === 'Escape') {
         setIsSearchOpen(false);
         setModalType(null);
       }
-      // Alt + 1,2,3 for tabs
       if (e.altKey && e.key === '1') setActiveTab('dashboard');
       if (e.altKey && e.key === '2') setActiveTab('schedule');
       if (e.altKey && e.key === '3') setActiveTab('team');
@@ -169,7 +179,6 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [setActiveTab]);
 
-  // Sorted Events
   const sortedEvents = useMemo(() => {
     return [...events].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [events]);
@@ -632,11 +641,11 @@ export default function App() {
         )}
       </Modal>
 
-      <aside className={`fixed inset-y-0 left-0 z-[60] flex flex-col transition-all duration-300 ease-in-out bg-white overflow-hidden ${isSidebarOpen ? 'w-72 border-r border-slate-100' : 'w-0 lg:w-20 border-r border-slate-100'}`}>
-        <div className={`px-6 py-8 flex items-center justify-between overflow-hidden shrink-0 ${!isSidebarOpen && 'lg:justify-center'}`}>
+      <aside className={`fixed inset-y-0 left-0 z-[60] flex flex-col transition-all duration-300 ease-in-out bg-white overflow-hidden shadow-2xl xl:shadow-none ${isSidebarOpen ? 'w-72 border-r border-slate-100' : 'w-0 xl:w-20 border-r border-slate-100'}`}>
+        <div className={`px-6 py-8 flex items-center justify-between overflow-hidden shrink-0 ${!isSidebarOpen && 'xl:justify-center'}`}>
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-indigo-100 shrink-0"><Mic2 size={24} /></div>
-            {isSidebarOpen && <div className="min-w-0 flex-1 animate-in fade-in slide-in-from-left-2"><h1 className="font-black text-lg text-slate-900 whitespace-nowrap">{profile.churchName}</h1><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest truncate">WorshipFlow AI</p></div>}
+            {isSidebarOpen && <div className="min-w-0 flex-1 animate-in fade-in slide-in-from-left-2"><h1 className="font-black text-lg text-slate-900 whitespace-nowrap leading-tight">{profile.churchName}</h1><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest truncate">WorshipFlow AI</p></div>}
           </div>
         </div>
         <nav className="flex-1 mt-6 px-4 space-y-2 overflow-y-auto custom-scrollbar">
@@ -645,7 +654,7 @@ export default function App() {
             { id: 'schedule', icon: Calendar, label: 'Schedules', key: '2' },
             { id: 'team', icon: Users, label: 'Worship Team', key: '3' },
           ].map(m => (
-            <button key={m.id} onClick={() => { setActiveTab(m.id as AppTab); if(window.innerWidth < 1024) setIsSidebarOpen(false); }} className={`w-full flex items-center gap-4 p-4 rounded-3xl transition-all ${activeTab === m.id ? 'bg-indigo-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-50 hover:text-indigo-600'} ${!isSidebarOpen && 'lg:justify-center'} relative group`}>
+            <button key={m.id} onClick={() => { setActiveTab(m.id as AppTab); if(window.innerWidth < 1280) setIsSidebarOpen(false); }} className={`w-full flex items-center gap-4 p-4 rounded-3xl transition-all ${activeTab === m.id ? 'bg-indigo-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-50 hover:text-indigo-600'} ${!isSidebarOpen && 'xl:justify-center'} relative group`}>
               <m.icon size={24} strokeWidth={2.5} className="shrink-0" />
               {isSidebarOpen && <span className="font-black text-sm whitespace-nowrap tracking-tight">{m.label}</span>}
               {!isSidebarOpen && isSidebarOpen !== undefined && (
@@ -655,17 +664,23 @@ export default function App() {
           ))}
         </nav>
         <div className="p-4 border-t border-slate-50">
-          <button onClick={() => setIsSearchOpen(true)} className={`w-full flex items-center gap-4 p-4 rounded-3xl text-slate-400 hover:bg-slate-50 hover:text-indigo-600 transition-all ${!isSidebarOpen && 'lg:justify-center'}`}>
+          <button onClick={() => setIsSearchOpen(true)} className={`w-full flex items-center gap-4 p-4 rounded-3xl text-slate-400 hover:bg-slate-50 hover:text-indigo-600 transition-all ${!isSidebarOpen && 'xl:justify-center'}`}>
             <Search size={24} strokeWidth={2.5} className="shrink-0" />
             {isSidebarOpen && <span className="font-black text-sm whitespace-nowrap tracking-tight italic">Search...</span>}
           </button>
         </div>
       </aside>
 
-      <main className="flex-1 flex flex-col h-screen overflow-hidden relative">
+      {/* Main Content Area */}
+      <main className={`flex-1 flex flex-col h-screen overflow-hidden relative transition-all duration-300 ease-in-out ${isSidebarOpen ? 'xl:pl-72' : 'xl:pl-20'}`}>
+        {/* Overlay for mobile when sidebar is open */}
+        {isSidebarOpen && window.innerWidth < 1280 && (
+          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 animate-in fade-in duration-300" onClick={() => setIsSidebarOpen(false)} />
+        )}
+
         <header className="h-20 lg:h-24 bg-white/80 backdrop-blur-2xl border-b border-slate-50 flex items-center justify-between px-6 lg:px-12 shrink-0 z-40">
           <div className="flex items-center gap-5">
-            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-3 bg-slate-50 rounded-2xl text-slate-900 border border-slate-100 transition-all flex items-center justify-center">
+            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-3 bg-slate-50 rounded-2xl text-slate-900 border border-slate-100 transition-all flex items-center justify-center hover:bg-slate-100">
               {isSidebarOpen ? <PanelLeftClose size={22} /> : <Menu size={22} />}
             </button>
             <div>
@@ -718,7 +733,7 @@ export default function App() {
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 lg:gap-10">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-10">
                   {sortedEvents.map(ev => {
                     const eventTeam = assignments.filter(a => a.eventId === ev.id);
                     const eventSetlist = eventSongs.filter(s => s.eventId === ev.id);
@@ -791,7 +806,7 @@ export default function App() {
                   </div>
                   <button onClick={() => { setFormData({roles: [], status: 'active'}); setModalType('add_member'); }} className="w-full sm:w-auto bg-indigo-600 py-4 px-10 rounded-2xl text-white font-black text-[10px] uppercase tracking-widest shadow-xl hover:bg-indigo-700 transition-all">+ Add Member</button>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6 lg:gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
                   {members.map(m => (
                     <div key={m.id} className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col gap-6 group hover:border-indigo-100 transition-all">
                       <div className="flex justify-between items-start">

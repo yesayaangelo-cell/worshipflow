@@ -32,7 +32,10 @@ import {
   StickyNote,
   Command,
   Phone,
-  Power
+  Power,
+  Heart,
+  Copy,
+  ExternalLink
 } from 'lucide-react';
 import { STORAGE_KEYS, DEFAULTS, STANDARD_ROLES, MEMBER_LIMIT, EVENT_LIMIT } from './constants';
 import { Member, Event, Assignment, Song, AppTab, Role, AdminProfile } from './types';
@@ -495,7 +498,8 @@ export default function App() {
         modalType === 'add_member' ? 'Add Worship Team Member' :
         modalType === 'edit_member' ? 'Member Profile' :
         modalType === 'edit_profile' ? 'Dashboard Settings' :
-        modalType === 'assign_team' ? `Assign: ${selectedEvent?.name}` : 'Details'
+        modalType === 'assign_team' ? `Assign: ${selectedEvent?.name}` : 
+        modalType === 'donate' ? 'Support WorshipFlow' : 'Details'
       }>
         {modalType === 'add_event' && (
           <form onSubmit={handleEventSubmit} className="space-y-6">
@@ -571,6 +575,51 @@ export default function App() {
               {modalType === 'add_member' ? 'Add To Worship Team' : 'Save Changes'}
             </button>
           </form>
+        )}
+
+        {modalType === 'donate' && (
+          <div className="space-y-8 py-2">
+            <div className="text-center space-y-3">
+              <div className="w-16 h-16 bg-pink-100 text-pink-500 rounded-3xl flex items-center justify-center mx-auto shadow-lg shadow-pink-50 animate-bounce">
+                <Heart size={32} fill="currentColor" />
+              </div>
+              <h4 className="text-xl font-black text-slate-900">Support Development</h4>
+              <p className="text-sm text-slate-500 font-medium px-4">Jika aplikasi ini membantu pelayanan Anda, dukung pengembangannya melalui:</p>
+            </div>
+            
+            <div className="bg-slate-50 border border-slate-100 rounded-[2rem] p-8 space-y-6 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-4 opacity-5">
+                <Heart size={80} />
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest bg-indigo-50 px-3 py-1 rounded-full">Bank Transfer</span>
+                <span className="font-black text-slate-300 italic">BCA</span>
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Account Name</p>
+                <p className="text-lg font-black text-slate-900 uppercase">Yesaya Angelo</p>
+              </div>
+              <div className="space-y-2">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Account Number</p>
+                <button 
+                  onClick={() => copyToClipboard('8800487863')}
+                  className="w-full flex items-center justify-between bg-white px-6 py-5 rounded-2xl border border-slate-200 hover:border-indigo-500 hover:bg-indigo-50 transition-all group/btn"
+                >
+                  <span className="text-2xl font-black tracking-widest text-slate-900 group-hover/btn:text-indigo-600 transition-colors">8800487863</span>
+                  <div className="flex items-center gap-2 text-indigo-500 font-black text-[10px] uppercase tracking-widest">
+                    <Copy size={16} /> Salin
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-indigo-600 p-6 rounded-[2rem] text-white flex items-center gap-4 shadow-xl shadow-indigo-100">
+              <div className="bg-white/20 p-3 rounded-2xl"><Heart size={20} /></div>
+              <p className="text-xs font-bold leading-relaxed">Terima kasih banyak atas dukungan Anda untuk masa depan pelayanan kita!</p>
+            </div>
+
+            <button onClick={() => setModalType(null)} className="w-full bg-slate-900 text-white font-black py-5 rounded-2xl shadow-xl hover:bg-black transition-all">Selesai</button>
+          </div>
         )}
 
         {modalType === 'edit_profile' && (
@@ -680,22 +729,49 @@ export default function App() {
             {isSidebarOpen && <div className="min-w-0 flex-1 animate-in fade-in slide-in-from-left-2"><h1 className="font-black text-lg text-slate-900 whitespace-nowrap leading-tight">{profile.churchName}</h1><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest truncate">WorshipFlow AI</p></div>}
           </div>
         </div>
+        
         <nav className="flex-1 mt-6 px-4 space-y-2 overflow-y-auto custom-scrollbar">
           {[
-            { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard', key: '1' },
-            { id: 'schedule', icon: Calendar, label: 'Schedules', key: '2' },
-            { id: 'team', icon: Users, label: 'Worship Team', key: '3' },
+            { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+            { id: 'schedule', icon: Calendar, label: 'Schedules' },
+            { id: 'team', icon: Users, label: 'Worship Team' },
           ].map(m => (
-            <button key={m.id} onClick={() => { setActiveTab(m.id as AppTab); if(window.innerWidth < 1280) setIsSidebarOpen(false); }} className={`w-full flex items-center gap-4 p-4 rounded-3xl transition-all ${activeTab === m.id ? 'bg-indigo-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-50 hover:text-indigo-600'} ${!isSidebarOpen && 'xl:justify-center'} relative group`}>
+            <button 
+              key={m.id} 
+              onClick={() => { setActiveTab(m.id as AppTab); if(window.innerWidth < 1280) setIsSidebarOpen(false); }} 
+              className={`w-full flex items-center gap-4 p-4 rounded-3xl transition-all ${activeTab === m.id ? 'bg-indigo-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-50 hover:text-indigo-600'} ${!isSidebarOpen && 'xl:justify-center'} relative group`}
+            >
               <m.icon size={24} strokeWidth={2.5} className="shrink-0" />
               {isSidebarOpen && <span className="font-black text-sm whitespace-nowrap tracking-tight">{m.label}</span>}
-              {!isSidebarOpen && isSidebarOpen !== undefined && (
+              {!isSidebarOpen && (
                 <div className="absolute left-full ml-2 px-2 py-1 bg-slate-900 text-white text-[10px] font-black rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">{m.label}</div>
               )}
             </button>
           ))}
+
+          {/* Support Section Integrated into Nav Area */}
+          {isSidebarOpen && (
+            <div className="pt-8 pb-4">
+              <div className="bg-gradient-to-br from-indigo-50/50 to-white border border-indigo-100/50 p-5 rounded-[2rem] space-y-3">
+                <div className="w-8 h-8 bg-pink-100 text-pink-500 rounded-xl flex items-center justify-center">
+                  <Heart size={16} fill="currentColor" />
+                </div>
+                <div>
+                  <p className="font-black text-slate-900 text-[11px] uppercase tracking-wider">Support Me</p>
+                  <p className="text-[9px] text-slate-400 font-bold leading-tight uppercase tracking-widest mt-0.5">App is cool? Support it!</p>
+                </div>
+                <button 
+                  onClick={() => setModalType('donate')}
+                  className="w-full bg-slate-900 text-white py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-black transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 group"
+                >
+                  Donate <Heart size={10} className="text-pink-500 group-hover:scale-125 transition-transform" />
+                </button>
+              </div>
+            </div>
+          )}
         </nav>
-        <div className="p-4 border-t border-slate-50">
+
+        <div className="p-4 border-t border-slate-50 shrink-0">
           <button onClick={() => setIsSearchOpen(true)} className={`w-full flex items-center gap-4 p-4 rounded-3xl text-slate-400 hover:bg-slate-50 hover:text-indigo-600 transition-all ${!isSidebarOpen && 'xl:justify-center'}`}>
             <Search size={24} strokeWidth={2.5} className="shrink-0" />
             {isSidebarOpen && <span className="font-black text-sm whitespace-nowrap tracking-tight italic">Search...</span>}

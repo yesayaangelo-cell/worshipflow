@@ -30,13 +30,10 @@ import {
   ChevronRight, 
   MoreVertical, 
   StickyNote,
-  Sparkles,
-  Wand2,
-  Loader2
+  Command
 } from 'lucide-react';
 import { STORAGE_KEYS, DEFAULTS, STANDARD_ROLES, MEMBER_LIMIT, EVENT_LIMIT } from './constants';
 import { Member, Event, Assignment, Song, AppTab, Role, AdminProfile } from './types';
-import { geminiService } from './geminiService';
 
 // --- CUSTOM HOOKS ---
 
@@ -145,10 +142,32 @@ export default function App() {
   const [formData, setFormData] = useState<any>({});
   const [newSong, setNewSong] = useState({ title: '', key: '' });
   
-  // AI States
-  const [aiTheme, setAiTheme] = useState('');
-  const [aiSuggestions, setAiSuggestions] = useState<any[]>([]);
-  const [isAiLoading, setIsAiLoading] = useState(false);
+  // Global Search State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+
+  // Keyboard Shortcuts Handler
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Cmd+K for search
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setIsSearchOpen(true);
+      }
+      // Esc to close modals/search
+      if (e.key === 'Escape') {
+        setIsSearchOpen(false);
+        setModalType(null);
+      }
+      // Alt + 1,2,3 for tabs
+      if (e.altKey && e.key === '1') setActiveTab('dashboard');
+      if (e.altKey && e.key === '2') setActiveTab('schedule');
+      if (e.altKey && e.key === '3') setActiveTab('team');
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [setActiveTab]);
 
   // Sorted Events
   const sortedEvents = useMemo(() => {
@@ -328,31 +347,15 @@ export default function App() {
     showToast("Profile settings updated");
   };
 
-  const handleGetAiSetlist = async () => {
-    if (!aiTheme) return;
-    setIsAiLoading(true);
-    try {
-      const suggestions = await geminiService.suggestSetlist(aiTheme);
-      setAiSuggestions(suggestions);
-    } catch (error) {
-      showToast("AI error. Check your API Key.");
-    } finally {
-      setIsAiLoading(false);
-    }
-  };
+  const filteredMembers = useMemo(() => {
+    if (!searchQuery) return [];
+    return members.filter(m => m.name.toLowerCase().includes(searchQuery.toLowerCase()));
+  }, [members, searchQuery]);
 
-  const addAiSong = (song: any) => {
-    if (!selectedEventId) return;
-    setEventSongs(prev => [...prev, { 
-      id: `s${Date.now()}`, 
-      eventId: selectedEventId, 
-      title: song.title, 
-      key: song.key,
-      notes: song.reason || ''
-    }]);
-    setAiSuggestions(prev => prev.filter(s => s.title !== song.title));
-    showToast("Song added from AI!");
-  };
+  const filteredEvents = useMemo(() => {
+    if (!searchQuery) return [];
+    return events.filter(e => e.name.toLowerCase().includes(searchQuery.toLowerCase()));
+  }, [events, searchQuery]);
 
   if (!isLoggedIn) {
     return (
@@ -400,7 +403,71 @@ export default function App() {
         title={confirmState.title} message={confirmState.message} 
       />
 
-      <Modal isOpen={!!modalType} onClose={() => { setModalType(null); setAiSuggestions([]); setAiTheme(''); }} title={
+      {/* Global Search Modal */}
+      {isSearchOpen && (
+        <div className="fixed inset-0 z-[200] flex items-start justify-center p-4 sm:pt-20">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsSearchOpen(false)} />
+          <div className="bg-white w-full max-w-2xl rounded-[2rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 relative z-10 border border-slate-200">
+            <div className="p-6 border-b border-slate-100 flex items-center gap-4">
+              <Search className="text-slate-400" size={24} />
+              <input 
+                autoFocus
+                type="text" 
+                placeholder="Search songs, members, or events... (Press Esc to close)" 
+                className="flex-1 bg-transparent border-none outline-none text-xl font-bold text-slate-900 placeholder:text-slate-300"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+              />
+              <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 bg-slate-100 rounded-lg text-[10px] font-black text-slate-400 uppercase">
+                <Command size={10} /> K
+              </div>
+            </div>
+            <div className="max-h-[60vh] overflow-y-auto p-4 space-y-6">
+              {searchQuery ? (
+                <>
+                  {filteredMembers.length > 0 && (
+                    <div>
+                      <h4 className="px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Members</h4>
+                      <div className="space-y-1">
+                        {filteredMembers.map(m => (
+                          <button key={m.id} onClick={() => { setActiveTab('team'); setIsSearchOpen(false); }} className="w-full text-left px-4 py-3 rounded-xl hover:bg-slate-50 flex items-center gap-3 transition-colors">
+                            <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center text-[10px] font-black">{m.avatar}</div>
+                            <span className="font-bold text-slate-700">{m.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {filteredEvents.length > 0 && (
+                    <div>
+                      <h4 className="px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Events</h4>
+                      <div className="space-y-1">
+                        {filteredEvents.map(e => (
+                          <button key={e.id} onClick={() => { setActiveTab('schedule'); setIsSearchOpen(false); }} className="w-full text-left px-4 py-3 rounded-xl hover:bg-slate-50 flex items-center gap-3 transition-colors">
+                            <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center"><Calendar size={14} /></div>
+                            <span className="font-bold text-slate-700">{e.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {filteredMembers.length === 0 && filteredEvents.length === 0 && (
+                    <div className="p-10 text-center">
+                      <p className="text-slate-400 font-bold italic">No results found for "{searchQuery}"</p>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="p-10 text-center">
+                  <p className="text-slate-300 font-bold text-sm">Start typing to search...</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <Modal isOpen={!!modalType} onClose={() => { setModalType(null); }} title={
         modalType === 'add_event' ? 'New Service' : 
         modalType === 'manage_songs' ? 'Event Setlist' : 
         modalType === 'add_member' ? 'Add Worship Team Member' :
@@ -540,51 +607,6 @@ export default function App() {
               <button type="submit" className="bg-indigo-600 text-white p-4 rounded-xl shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95"><Plus size={20} /></button>
             </form>
 
-            {/* AI Suggestion Section */}
-            <div className="bg-slate-900 rounded-[2rem] p-6 text-white shadow-2xl">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center"><Sparkles size={16} /></div>
-                <h4 className="text-sm font-black uppercase tracking-widest">AI Setlist Suggestion</h4>
-              </div>
-              <div className="flex gap-2">
-                <input 
-                  type="text" 
-                  placeholder="Enter theme (e.g. Hope, Joy, Cross)..." 
-                  className="flex-1 bg-slate-800 border-none rounded-xl px-4 py-3 text-xs font-bold text-white outline-none focus:ring-2 focus:ring-indigo-500" 
-                  value={aiTheme}
-                  onChange={e => setAiTheme(e.target.value)}
-                />
-                <button 
-                  onClick={handleGetAiSetlist}
-                  disabled={isAiLoading || !aiTheme}
-                  className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 px-5 py-3 rounded-xl transition-all flex items-center gap-2 text-xs font-black uppercase tracking-widest"
-                >
-                  {isAiLoading ? <Loader2 className="animate-spin" size={16} /> : <Wand2 size={16} />}
-                  Suggest
-                </button>
-              </div>
-
-              {aiSuggestions.length > 0 && (
-                <div className="mt-6 space-y-3 animate-in slide-in-from-top-4 duration-500">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Suggestions for "{aiTheme}":</p>
-                  {aiSuggestions.map((song, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-3 bg-slate-800 rounded-xl group hover:bg-slate-700 transition-all">
-                      <div className="min-w-0">
-                        <p className="text-sm font-bold truncate">{song.title}</p>
-                        <p className="text-[9px] text-indigo-400 font-black uppercase tracking-widest mt-0.5">Key of {song.key}</p>
-                      </div>
-                      <button 
-                        onClick={() => addAiSong(song)}
-                        className="p-2 bg-indigo-600 rounded-lg opacity-0 group-hover:opacity-100 transition-all hover:bg-indigo-500"
-                      >
-                        <Plus size={14} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
             {/* Current Setlist List */}
             <div className="space-y-4">
               <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-2">Current Setlist ({eventSongs.filter(s => s.eventId === selectedEventId).length})</h4>
@@ -619,16 +641,25 @@ export default function App() {
         </div>
         <nav className="flex-1 mt-6 px-4 space-y-2 overflow-y-auto custom-scrollbar">
           {[
-            { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-            { id: 'schedule', icon: Calendar, label: 'Schedules' },
-            { id: 'team', icon: Users, label: 'Worship Team' },
+            { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard', key: '1' },
+            { id: 'schedule', icon: Calendar, label: 'Schedules', key: '2' },
+            { id: 'team', icon: Users, label: 'Worship Team', key: '3' },
           ].map(m => (
-            <button key={m.id} onClick={() => { setActiveTab(m.id as AppTab); if(window.innerWidth < 1024) setIsSidebarOpen(false); }} className={`w-full flex items-center gap-4 p-4 rounded-3xl transition-all ${activeTab === m.id ? 'bg-indigo-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-50 hover:text-indigo-600'} ${!isSidebarOpen && 'lg:justify-center'}`}>
+            <button key={m.id} onClick={() => { setActiveTab(m.id as AppTab); if(window.innerWidth < 1024) setIsSidebarOpen(false); }} className={`w-full flex items-center gap-4 p-4 rounded-3xl transition-all ${activeTab === m.id ? 'bg-indigo-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-50 hover:text-indigo-600'} ${!isSidebarOpen && 'lg:justify-center'} relative group`}>
               <m.icon size={24} strokeWidth={2.5} className="shrink-0" />
               {isSidebarOpen && <span className="font-black text-sm whitespace-nowrap tracking-tight">{m.label}</span>}
+              {!isSidebarOpen && isSidebarOpen !== undefined && (
+                <div className="absolute left-full ml-2 px-2 py-1 bg-slate-900 text-white text-[10px] font-black rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">{m.label}</div>
+              )}
             </button>
           ))}
         </nav>
+        <div className="p-4 border-t border-slate-50">
+          <button onClick={() => setIsSearchOpen(true)} className={`w-full flex items-center gap-4 p-4 rounded-3xl text-slate-400 hover:bg-slate-50 hover:text-indigo-600 transition-all ${!isSidebarOpen && 'lg:justify-center'}`}>
+            <Search size={24} strokeWidth={2.5} className="shrink-0" />
+            {isSidebarOpen && <span className="font-black text-sm whitespace-nowrap tracking-tight italic">Search...</span>}
+          </button>
+        </div>
       </aside>
 
       <main className="flex-1 flex flex-col h-screen overflow-hidden relative">
@@ -643,6 +674,10 @@ export default function App() {
             </div>
           </div>
           <div className="flex items-center gap-4">
+            <button onClick={() => setIsSearchOpen(true)} className="hidden md:flex items-center gap-3 bg-slate-100 px-4 py-2 rounded-xl text-slate-400 hover:bg-slate-200 transition-all border border-slate-200/50">
+              <Search size={16} />
+              <span className="text-[11px] font-black uppercase tracking-widest">Search (⌘K)</span>
+            </button>
             <button onClick={() => { setFormData(profile); setModalType('edit_profile'); }} className="flex items-center gap-3 bg-slate-50 py-1.5 pl-1.5 pr-4 rounded-2xl border border-slate-100 transition-all active:scale-95">
               <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center text-[10px] font-black">{adminInitials}</div>
               <p className="text-[10px] font-black text-slate-900 uppercase hidden sm:block">{profile.adminName}</p>
@@ -682,6 +717,7 @@ export default function App() {
                     <button onClick={() => { setFormData({category: 'Sunday Service', date: new Date().toISOString().split('T')[0], time: '09:00'}); setModalType('add_event'); }} className="flex-1 sm:flex-none bg-indigo-600 py-4 px-8 rounded-2xl text-white font-black text-[10px] uppercase tracking-widest shadow-xl hover:bg-indigo-700 transition-all">+ New Event</button>
                   </div>
                 </div>
+                
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 lg:gap-10">
                   {sortedEvents.map(ev => {
                     const eventTeam = assignments.filter(a => a.eventId === ev.id);
@@ -708,26 +744,29 @@ export default function App() {
                             <button onClick={() => setConfirmState({ isOpen: true, title: 'Hapus Event?', message: 'Data event akan hilang permanen.', onConfirm: () => setEvents(prev => prev.filter((e: any) => e.id !== ev.id)) })} className="p-2 text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={18}/></button>
                           </div>
                         </div>
+                        
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-6 rounded-[2rem] border border-slate-100 mb-8">
                           <div className="space-y-3">
                             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Setlist ({eventSetlist.length})</p>
                             <div className="space-y-1.5">
-                              {eventSetlist.slice(0, 2).map(s => <p key={s.id} className="text-xs font-bold text-slate-700 truncate">{s.title} <span className="text-indigo-400">({s.key})</span></p>)}
+                              {eventSetlist.map(s => <p key={s.id} className="text-xs font-bold text-slate-700 truncate">{s.title} <span className="text-indigo-400">({s.key})</span></p>)}
                               {eventSetlist.length === 0 && <p className="text-[10px] italic text-slate-300">Empty setlist</p>}
                             </div>
                           </div>
                           <div className="space-y-3">
                             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Team ({eventTeam.length})</p>
-                            <div className="flex -space-x-2">
-                              {eventTeam.slice(0, 4).map((a, i) => (
-                                <div key={i} title={a.role} className="w-8 h-8 rounded-lg bg-white border-2 border-slate-50 flex items-center justify-center text-[8px] font-black text-indigo-600 shadow-sm">
-                                  {members.find(m => m.id === a.memberId)?.avatar}
-                                </div>
+                            <div className="flex flex-col gap-1">
+                              {eventTeam.map((a, i) => (
+                                <p key={i} className="text-[10px] font-bold text-slate-600 flex items-center gap-2">
+                                  <span className="text-indigo-500 font-black uppercase text-[8px] w-16">{a.role}:</span>
+                                  <span>{members.find(m => m.id === a.memberId)?.name || 'Vacant'}</span>
+                                </p>
                               ))}
                               {eventTeam.length === 0 && <p className="text-[10px] italic text-slate-300">No team assigned</p>}
                             </div>
                           </div>
                         </div>
+                        
                         <div className="flex gap-3">
                           <button onClick={() => { setSelectedEventId(ev.id); setModalType('manage_songs'); }} className="flex-1 bg-slate-100 py-4 rounded-2xl text-slate-600 font-black text-[9px] uppercase tracking-widest active:scale-95 transition-all flex items-center justify-center gap-2">
                             <Music size={14} /> Setlist
@@ -780,7 +819,11 @@ export default function App() {
           </div>
         </div>
       </main>
-      <style>{`.custom-scrollbar::-webkit-scrollbar { width: 6px; } .custom-scrollbar::-webkit-scrollbar-track { background: transparent; } .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }`}</style>
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; } 
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; } 
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+      `}</style>
     </div>
   );
 }

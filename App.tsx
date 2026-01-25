@@ -593,7 +593,7 @@ export default function App() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest bg-indigo-50 px-3 py-1 rounded-full">Bank Transfer</span>
-                <span className="font-black text-slate-300 italic">BCA</span>
+                <span className="font-black text-blue-700 bg-blue-50 px-3 py-1 rounded-lg border border-blue-100 text-xs shadow-sm">BCA</span>
               </div>
               <div>
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Account Name</p>

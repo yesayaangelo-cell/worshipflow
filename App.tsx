@@ -30,7 +30,9 @@ import {
   ChevronRight, 
   MoreVertical, 
   StickyNote,
-  Command
+  Command,
+  Phone,
+  Power
 } from 'lucide-react';
 import { STORAGE_KEYS, DEFAULTS, STANDARD_ROLES, MEMBER_LIMIT, EVENT_LIMIT } from './constants';
 import { Member, Event, Assignment, Song, AppTab, Role, AdminProfile } from './types';
@@ -130,6 +132,7 @@ export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 1280);
   const [modalType, setModalType] = useState<string | null>(null);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [confirmState, setConfirmState] = useState({ isOpen: false, title: '', message: '', onConfirm: () => {} });
   const [toast, setToast] = useState({ show: false, message: '' });
   
@@ -186,6 +189,10 @@ export default function App() {
   const selectedEvent = useMemo(() => {
     return events.find(e => e.id === selectedEventId);
   }, [events, selectedEventId]);
+
+  const selectedMember = useMemo(() => {
+    return members.find(m => m.id === selectedMemberId);
+  }, [members, selectedMemberId]);
 
   const adminInitials = useMemo(() => {
     return profile.adminName.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) || 'AD';
@@ -329,24 +336,30 @@ export default function App() {
     e.preventDefault();
     if (!formData.name) return;
 
-    if (members.length >= MEMBER_LIMIT) {
-      setModalType(null);
-      showToast(`Batas maksimal ${MEMBER_LIMIT} orang telah tercapai!`);
-      return;
-    }
+    if (modalType === 'add_member') {
+      if (members.length >= MEMBER_LIMIT) {
+        setModalType(null);
+        showToast(`Batas maksimal ${MEMBER_LIMIT} orang telah tercapai!`);
+        return;
+      }
 
-    const initials = formData.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().substring(0, 2);
-    const newMember: Member = { 
-      id: `m${Date.now()}`,
-      name: formData.name,
-      phone: formData.phone || '-',
-      roles: formData.roles || [],
-      status: 'active',
-      avatar: initials || '??'
-    };
-    setMembers(prev => [...prev, newMember]);
+      const initials = formData.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().substring(0, 2);
+      const newMember: Member = { 
+        id: `m${Date.now()}`,
+        name: formData.name,
+        phone: formData.phone || '-',
+        roles: formData.roles || [],
+        status: formData.status || 'active',
+        avatar: initials || '??'
+      };
+      setMembers(prev => [...prev, newMember]);
+      showToast("Member added successfully");
+    } else if (modalType === 'edit_member' && selectedMemberId) {
+      setMembers(prev => prev.map(m => m.id === selectedMemberId ? { ...m, ...formData } : m));
+      showToast("Member updated successfully");
+    }
+    
     setModalType(null);
-    showToast("Member added successfully");
   };
 
   const handleProfileSubmit = (e: React.FormEvent) => {
@@ -480,6 +493,7 @@ export default function App() {
         modalType === 'add_event' ? 'New Service' : 
         modalType === 'manage_songs' ? 'Event Setlist' : 
         modalType === 'add_member' ? 'Add Worship Team Member' :
+        modalType === 'edit_member' ? 'Member Profile' :
         modalType === 'edit_profile' ? 'Dashboard Settings' :
         modalType === 'assign_team' ? `Assign: ${selectedEvent?.name}` : 'Details'
       }>
@@ -509,9 +523,9 @@ export default function App() {
           </form>
         )}
 
-        {modalType === 'add_member' && (
+        {(modalType === 'add_member' || modalType === 'edit_member') && (
           <form onSubmit={handleMemberSubmit} className="space-y-6">
-            {members.length >= MEMBER_LIMIT && (
+            {modalType === 'add_member' && members.length >= MEMBER_LIMIT && (
               <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl flex items-start gap-3 mb-2">
                 <AlertTriangle size={20} className="text-amber-500 shrink-0 mt-0.5" />
                 <p className="text-xs font-bold text-amber-700">Limit tercapai! Hapus anggota lama.</p>
@@ -521,21 +535,41 @@ export default function App() {
               <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Full Name</label>
               <div className="relative">
                 <User className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
-                <input disabled={members.length >= MEMBER_LIMIT} required type="text" placeholder="John Doe" className="w-full pl-14 pr-6 py-4 bg-slate-50 text-slate-900 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-50 font-bold disabled:opacity-50" value={formData.name || ''} onChange={e => setFormData({...formData, name: e.target.value})} />
+                <input required type="text" placeholder="John Doe" className="w-full pl-14 pr-6 py-4 bg-slate-50 text-slate-900 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-50 font-bold disabled:opacity-50" value={formData.name || ''} onChange={e => setFormData({...formData, name: e.target.value})} />
               </div>
             </div>
             <div>
-              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Primary Roles</label>
+              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Phone / WhatsApp</label>
+              <div className="relative">
+                <Phone className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
+                <input required type="text" placeholder="0812..." className="w-full pl-14 pr-6 py-4 bg-slate-50 text-slate-900 border border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-50 font-bold" value={formData.phone || ''} onChange={e => setFormData({...formData, phone: e.target.value})} />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Roles</label>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {STANDARD_ROLES.map(role => (
-                  <button disabled={members.length >= MEMBER_LIMIT} key={role} type="button" onClick={() => {
+                  <button key={role} type="button" onClick={() => {
                     const current = formData.roles || [];
                     setFormData({...formData, roles: current.includes(role) ? current.filter((r: Role) => r !== role) : [...current, role]});
-                  }} className={`px-4 py-3 rounded-xl text-[10px] font-black transition-all border uppercase tracking-wider disabled:opacity-50 ${formData.roles?.includes(role) ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-white border-slate-100 text-slate-500 hover:border-indigo-200'}`}>{role}</button>
+                  }} className={`px-4 py-3 rounded-xl text-[10px] font-black transition-all border uppercase tracking-wider ${formData.roles?.includes(role) ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-white border-slate-100 text-slate-500 hover:border-indigo-200'}`}>{role}</button>
                 ))}
               </div>
             </div>
-            <button disabled={members.length >= MEMBER_LIMIT} type="submit" className="w-full bg-indigo-600 text-white font-black py-5 rounded-2xl shadow-xl transition-all disabled:bg-slate-300">Add To Worship Team</button>
+            <div>
+              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Service Status</label>
+              <div className="flex gap-4">
+                <button type="button" onClick={() => setFormData({...formData, status: 'active'})} className={`flex-1 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest border transition-all flex items-center justify-center gap-2 ${formData.status === 'active' ? 'bg-emerald-50 border-emerald-200 text-emerald-600 shadow-lg shadow-emerald-50' : 'bg-white border-slate-100 text-slate-400'}`}>
+                  <div className={`w-2 h-2 rounded-full ${formData.status === 'active' ? 'bg-emerald-500' : 'bg-slate-300'}`} /> Active
+                </button>
+                <button type="button" onClick={() => setFormData({...formData, status: 'inactive'})} className={`flex-1 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest border transition-all flex items-center justify-center gap-2 ${formData.status === 'inactive' ? 'bg-red-50 border-red-200 text-red-600 shadow-lg shadow-red-50' : 'bg-white border-slate-100 text-slate-400'}`}>
+                  <Power size={14} /> Inactive
+                </button>
+              </div>
+            </div>
+            <button type="submit" className="w-full bg-indigo-600 text-white font-black py-5 rounded-2xl shadow-xl transition-all">
+              {modalType === 'add_member' ? 'Add To Worship Team' : 'Save Changes'}
+            </button>
           </form>
         )}
 
@@ -589,7 +623,7 @@ export default function App() {
                     </div>
                     <select className="bg-white text-slate-900 border border-slate-200 rounded-xl px-4 py-2.5 text-[11px] font-black outline-none focus:ring-4 focus:ring-indigo-100 max-w-[140px]" value={currentAssignment?.memberId || ''} onChange={(e) => handleAssignMember(role, e.target.value)}>
                       <option value="">- Assign -</option>
-                      {members.filter(m => !assignedMemberIds.includes(m.id) || m.id === currentAssignment?.memberId).map(m => (
+                      {members.filter(m => (!assignedMemberIds.includes(m.id) || m.id === currentAssignment?.memberId) && m.status === 'active').map(m => (
                         <option key={m.id} value={m.id}>{m.name}</option>
                       ))}
                     </select>
@@ -603,7 +637,6 @@ export default function App() {
 
         {modalType === 'manage_songs' && (
           <div className="space-y-8">
-            {/* Manual Add Section */}
             <form onSubmit={handleAddSong} className="bg-indigo-50/30 p-6 rounded-[2rem] flex flex-row gap-3 border border-indigo-100/50 items-end">
               <div className="flex-[3]">
                 <label className="block text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2 ml-1">Song Title</label>
@@ -616,7 +649,6 @@ export default function App() {
               <button type="submit" className="bg-indigo-600 text-white p-4 rounded-xl shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95"><Plus size={20} /></button>
             </form>
 
-            {/* Current Setlist List */}
             <div className="space-y-4">
               <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-2">Current Setlist ({eventSongs.filter(s => s.eventId === selectedEventId).length})</h4>
               {eventSongs.filter(s => s.eventId === selectedEventId).map((s, idx) => (
@@ -671,9 +703,7 @@ export default function App() {
         </div>
       </aside>
 
-      {/* Main Content Area */}
       <main className={`flex-1 flex flex-col h-screen overflow-hidden relative transition-all duration-300 ease-in-out ${isSidebarOpen ? 'xl:pl-72' : 'xl:pl-20'}`}>
-        {/* Overlay for mobile when sidebar is open */}
         {isSidebarOpen && window.innerWidth < 1280 && (
           <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 animate-in fade-in duration-300" onClick={() => setIsSidebarOpen(false)} />
         )}
@@ -808,25 +838,27 @@ export default function App() {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
                   {members.map(m => (
-                    <div key={m.id} className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col gap-6 group hover:border-indigo-100 transition-all">
-                      <div className="flex justify-between items-start">
+                    <button key={m.id} onClick={() => { setSelectedMemberId(m.id); setFormData(m); setModalType('edit_member'); }} className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col gap-6 text-left group hover:border-indigo-100 hover:shadow-xl hover:shadow-indigo-50/50 transition-all animate-in fade-in">
+                      <div className="flex justify-between items-start w-full">
                         <div className="flex items-center gap-4">
-                          <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center text-lg font-black text-indigo-600 border border-indigo-100">{m.avatar}</div>
+                          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-lg font-black border transition-colors ${m.status === 'active' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>{m.avatar}</div>
                           <div className="min-w-0 flex-1">
-                            <h4 className="font-black text-slate-900 truncate text-lg leading-tight">{m.name}</h4>
-                            <p className="text-[10px] text-slate-400 font-black mt-1 uppercase tracking-widest">{m.phone}</p>
+                            <h4 className="font-black text-slate-900 truncate text-lg leading-tight group-hover:text-indigo-600 transition-colors">{m.name}</h4>
+                            <p className="text-[10px] text-slate-400 font-black mt-1 uppercase tracking-widest flex items-center gap-1.5"><Phone size={10}/> {m.phone}</p>
                           </div>
                         </div>
-                        <button onClick={() => setConfirmState({ isOpen: true, title: 'Hapus Member?', message: `Hapus ${m.name}?`, onConfirm: () => setMembers(prev => prev.filter((item: any) => item.id !== m.id)) })} className="p-2 text-slate-200 hover:text-red-500 transition-colors"><Trash2 size={18} /></button>
+                        <div className="p-2 text-slate-200 hover:text-red-500 transition-colors" onClick={(e) => { e.stopPropagation(); setConfirmState({ isOpen: true, title: 'Hapus Member?', message: `Hapus ${m.name}?`, onConfirm: () => setMembers(prev => prev.filter((item: any) => item.id !== m.id)) }); }}><Trash2 size={18} /></div>
                       </div>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap gap-2 min-h-[1.5rem]">
                         {m.roles?.map(r => <span key={r} className="px-3 py-1 bg-slate-50 border border-slate-100 text-slate-500 text-[9px] font-black rounded-lg uppercase tracking-widest">{r}</span>)}
                       </div>
                       <div className="flex items-center justify-between pt-6 border-t border-slate-50">
-                        <span className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest ${m.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'}`}>{m.status}</span>
+                        <span className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center gap-2 ${m.status === 'active' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-slate-100 text-slate-400 border border-slate-100'}`}>
+                          <div className={`w-1.5 h-1.5 rounded-full ${m.status === 'active' ? 'bg-emerald-500' : 'bg-slate-400'}`} /> {m.status}
+                        </span>
                         <div className="flex items-center text-slate-300 text-[9px] font-black uppercase tracking-widest gap-1 group-hover:text-indigo-500 transition-colors">Details <ChevronRight size={14} /></div>
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </section>
